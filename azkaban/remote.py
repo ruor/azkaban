@@ -341,6 +341,22 @@ class Session(object):
       params={'ajax': 'fetchallprojects'},
     ))
 
+  def get_project_logs(self, name):
+    """Get logs of a project.
+
+    :param name: Project name.
+
+    """
+    self._logger.debug('Getting logs of project %s.', name)
+    return _extract_json(self._request(
+      method='GET',
+      endpoint='manager',
+      params={
+        'ajax': 'fetchProjectLogs',
+        'project': name,
+      },
+    ))
+
   def create_project(self, name, description):
     """Create project.
 
@@ -722,6 +738,37 @@ class Session(object):
         endpoint='manager',
         params={
           'ajax': 'fetchflowjobs',
+          'project': name,
+          'flow': flow,
+        },
+      )
+    except HTTPError:
+      # the Azkaban server throws a NullPointerException if the flow doesn't
+      # exist in the project, which causes a 500 response
+      raise AzkabanError('Worklow %s not found in project %s.', flow, name)
+    else:
+      try:
+        return _extract_json(res)
+      except ValueError:
+        # but sends a 200 empty response if the project doesn't exist
+        raise AzkabanError('Project %s not found.', name)
+
+  def get_workflow_graph(self, name, flow):
+    """Get graph of jobs corresponding to a workflow.
+
+    :param name: Project name.
+    :param flow: Name of flow in project.
+
+    """
+    self._logger.debug(
+      'Fetching flow graph for workflow %s in project %s', flow, name
+    )
+    try:
+      res = self._request(
+        method='GET',
+        endpoint='manager',
+        params={
+          'ajax': 'fetchflowgraph',
           'project': name,
           'flow': flow,
         },
